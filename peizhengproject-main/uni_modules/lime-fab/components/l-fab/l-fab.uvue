@@ -1,0 +1,170 @@
+<template>
+	<view class="l-fab" ref="rootRef" :style="[rootStyle]" @touchstart="onTouchstart" @touchmove="onTouchmove"
+		@touchend="onTouchend">
+		<slot></slot>
+	</view>
+</template>
+<script setup lang="uts">
+	import { LFabBoundary } from './type'
+	import { unitConvert } from '@/uni_modules/lime-shared/unitConvert'
+	import { addUnit } from '@/uni_modules/lime-shared/addUnit'
+	import { useTouch } from './useTouch'
+	import { closest } from '@/uni_modules/lime-shared/closest'
+	import { Props, LFabOffset } from './type'
+	defineOptions({
+		name: 'l-fab'
+	})
+	const emits = defineEmits(['update:offset','offsetChange'])
+	const props = withDefaults(defineProps<Props>(), {
+		offset: [-1, -1],
+		gap: 24,
+		axis: 'y',
+	})
+	const instance = getCurrentInstance()!.proxy!
+	const touch = useTouch();
+	const rootRef = ref<UniElement | null>(null)
+	const _x = ref(1000)
+	const _y = ref(0)
+	const width = ref(0)
+	const height = ref(0)
+	const windowWidth = ref(0)
+	const windowHeight = ref(0)
+
+	const show = ref(true)
+	let dragging = false
+	let initialized = false
+	let prevX = 0;
+	let prevY = 0;
+
+	const _gap = computed(() : number => unitConvert(props.gap))
+	const boundary = computed(() : LFabBoundary => {
+		return {
+			top: _gap.value,
+			right: windowWidth.value - width.value - _gap.value,
+			bottom: windowHeight.value - height.value - _gap.value,
+			left: _gap.value,
+		} as LFabBoundary
+	})
+	const rootStyle = computed(() : Map<string, any> => {
+		const style = new Map<string, any>()
+
+		style.set('transform', `translate(${_x.value}px,${_y.value}px)`)
+		if (dragging || !initialized) {
+			style.set('transition-duration', '0ms');
+		} else {
+			style.set('transition-duration', '300ms');
+		}
+		if(props.bgColor != null) {
+			style.set('background', props.bgColor!);
+		}
+		return style
+	})
+
+	const updateState = () => {
+		if (!show.value || rootRef.value == null) return
+		const [x, y] = props.offset
+		// #ifdef APP-ANDROID || APP-IOS || WEB
+		const rect = rootRef.value!.getBoundingClientRect()
+		_x.value = x > -1 ? x : windowWidth.value - rect.width - _gap.value
+		_y.value = y > -1 ? y : windowHeight.value - rect.height - _gap.value
+
+		width.value = rect.width
+		height.value = rect.height
+		// #endif
+		// #ifndef APP-ANDROID || APP-IOS || WEB
+		uni.createSelectorQuery().in(instance).select('.l-fab').boundingClientRect((rect) => {
+			_x.value = x > -1 ? x : windowWidth.value - rect.width - _gap.value
+			_y.value = y > -1 ? y : windowHeight.value - rect.height - _gap.value
+			
+			width.value = rect.width
+			height.value = rect.height
+		 }).exec()
+		// #endif
+	}
+
+	const onTouchstart = (e : UniTouchEvent) => {
+		touch.start(e);
+		dragging = true;
+		prevX = _x.value;
+		prevY = _y.value;
+	}
+	const onTouchmove = (e : UniTouchEvent) => {
+		e.preventDefault();
+		touch.move(e);
+		if (!'xy'.includes(props.axis)) return
+		if (!touch.isTap.value) {
+			if (props.axis === 'x' || props.axis === 'xy') {
+				let nextX = prevX + touch.deltaX.value;
+				if (nextX < boundary.value.left) nextX = boundary.value.left;
+				if (nextX > boundary.value.right) nextX = boundary.value.right;
+				_x.value = nextX;
+			}
+
+			if (props.axis === 'y' || props.axis === 'xy') {
+				let nextY = prevY + touch.deltaY.value;
+				if (nextY < boundary.value.top) nextY = boundary.value.top;
+				if (nextY > boundary.value.bottom) nextY = boundary.value.bottom;
+				_y.value = nextY;
+			}
+			emits('update:offset', [ _x.value, _y.value]);
+		}
+	}
+	const onTouchend = (_ : UniTouchEvent) => {
+		dragging = false;
+		nextTick(() => {
+			if (props.magnetic == 'x') {
+				const nextX = closest(
+					[boundary.value.left, boundary.value.right],
+					_x.value,
+				);
+				_x.value = nextX;
+			}
+			if (props.magnetic == 'y') {
+				const nextY = closest(
+					[boundary.value.top, boundary.value.bottom],
+					_y.value,
+				);
+				_y.value = nextY;
+			}
+
+			if (!touch.isTap.value) {
+				const offset = [ _x.value, _y.value];
+				emits('update:offset', offset);
+				if (prevX != offset[0] || prevY != offset[1]) {
+					emits('offsetChange', offset);
+				}
+			}
+		})
+	}
+	
+	watch(():any[] => [props.gap, props.offset], (_: any) => {
+		updateState()
+	})
+	
+	onMounted(() => {
+		nextTick(() => {
+			if (rootRef.value == null) return
+			const info = uni.getWindowInfo()
+			windowWidth.value = info.windowWidth
+			windowHeight.value = info.windowHeight
+			// #ifdef APP-ANDROID || APP-IOS || WEB
+			const rect = rootRef.value!.getBoundingClientRect()
+			width.value = rect.width
+			height.value = rect.height
+			// #endif
+			// #ifndef APP-ANDROID || APP-IOS || WEB
+			uni.createSelectorQuery().in(instance).select('.l-fab').boundingClientRect((ret) => {
+				width.value = ret.width
+			    height.value = ret.height
+			 }).exec()
+			// #endif
+			updateState()
+			nextTick(() => {
+				initialized = true;
+			})
+		})
+	})
+</script>
+<style lang="scss">
+	@import './index-u.scss';
+</style>

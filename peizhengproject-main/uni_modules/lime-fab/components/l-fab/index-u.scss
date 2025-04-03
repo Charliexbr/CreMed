@@ -1,0 +1,41 @@
+@import '~@/uni_modules/lime-style/index.scss';
+
+$fab-size: create-var(fab-size, 48px);
+$fab-initial-gap: create-var(fab-initial-gap, 24px);
+$fab-icon-size: create-var(fab-icon-size, 28px);
+$fab-background: create-var(fab-background, $primary-color);
+$fab-color: create-var(fab-color, white);
+$fab-z-index: create-var(fab-z-index, 999);
+$fab-border-radius: create-var(fab-border-radius, 999px);
+
+
+
+.l-fab {
+	position: fixed;
+	left: 0;
+	top: 0;
+	z-index: $fab-z-index;
+	right: $fab-initial-gap;
+	bottom: $fab-initial-gap;
+	// transition: transform 0.3s;
+	width: $fab-size;
+	height: $fab-size;
+	
+	justify-content: center;
+	align-items: center;
+	
+	background: $fab-background;
+	// color: $fab-color;
+	border-radius: $fab-border-radius;
+	pointer-events: auto;
+	
+	transition-property: transform;
+	// transition-duration: 300ms;
+	
+	// &:active,&--active {
+	// 	opacity: 0.9;
+	// }
+	&__icon {
+		font-size: $fab-icon-size;
+	}
+}
